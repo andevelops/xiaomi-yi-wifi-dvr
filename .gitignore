@@ -3,3 +3,5 @@
 *.pid
 *.tmp
 *.txt
+test*
+tmp*

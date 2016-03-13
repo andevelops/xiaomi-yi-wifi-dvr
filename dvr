@@ -1,0 +1,55 @@
+#!/bin/bash
+
+if [ $# != 2 ] 
+then 
+	echo "Usage:"
+	echo "$0 camera_address path_to_local_dir"
+else
+	DT=`date '+%Y-%m-%d %H:%M:%S'`
+	DT1=$(date +%s)
+
+	SRV=$1
+	SRV_DIR="/home/hd1/record"
+	TARGET_DIR=$2
+
+	# Get full directory name of the script 
+	SOURCE="${BASH_SOURCE[0]}"
+	while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+	  DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+	  SOURCE="$(readlink "$SOURCE")"
+	  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+	done
+	DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+	LOG_FILE=$DIR"/dvr-"$SRV".log"
+	LOCK_FILE=$DIR"/dvr-"$SRV".lock"
+
+	trap "rm -f $LOCK_FILE" SIGINT SIGTERM
+
+	if [ -e "$LOCK_FILE" ]
+	then
+		echo "Warning: " $DT "Process is still runing" >> $LOG_FILE
+		exit
+	else
+		echo $DT >> $LOG_FILE 
+		touch "$LOCK_FILE"
+
+		lftp -e "mirror --parallel=2 \
+			--exclude-glob '*.tmp' \
+			--only-newer \
+			--delete \
+			--verbose \
+			--no-perms \
+			--ignore-time \
+			$SRV_DIR $TARGET_DIR && exit" $SRV >> $LOG_FILE #2>&1
+
+		rm -f "$LOCK_FILE"
+		trap - SIGINT SIGTERM
+
+		DT2=$(date +%s)
+		echo "Done, " $(expr $DT2 - $DT1) "сек." >> $LOG_FILE
+		echo -e "\n" >> $LOG_FILE
+		
+		exit
+	fi
+fi
