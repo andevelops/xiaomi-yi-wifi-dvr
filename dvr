@@ -22,9 +22,9 @@ else
 	DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
 	LOG_FILE=$DIR"/dvr-"$SRV".log"
-	LOCK_FILE=$DIR"/dvr-"$SRV".lock"
+	LOCK_FILE="/tmp/dvr-"$SRV".lock"
 
-	trap "rm -f $LOCK_FILE" SIGINT SIGTERM
+	trap "rm -f $LOCK_FILE" SIGHUP SIGINT SIGQUIT SIGTERM
 
 	if [ -e "$LOCK_FILE" ]
 	then
@@ -34,8 +34,7 @@ else
 		echo $DT >> $LOG_FILE 
 		touch "$LOCK_FILE"
 
-		lftp -e "mirror --parallel=2 \
-			--exclude-glob '*.tmp' \
+		lftp -e "mirror --exclude-glob '*.tmp' \
 			--only-newer \
 			--delete \
 			--verbose \
@@ -44,7 +43,7 @@ else
 			$SRV_DIR $TARGET_DIR && exit" $SRV >> $LOG_FILE #2>&1
 
 		rm -f "$LOCK_FILE"
-		trap - SIGINT SIGTERM
+		trap - SIGHUP SIGINT SIGQUIT SIGTERM
 
 		DT2=$(date +%s)
 		echo "Done, " $(expr $DT2 - $DT1) "сек." >> $LOG_FILE
